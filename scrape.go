@@ -1,30 +1,49 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
+	"os"
 
 	"github.com/gocolly/colly"
 )
 
-// main() contains code adapted from example found in Colly's docs:
-// http://go-colly.org/docs/examples/basic/
+type foodRecipe struct {
+	Title string `json:"title"`
+	Img   string `json:"img"`
+	Link  string `json:"href"`
+}
+
 func main() {
-	// Instantiate default collector
 	c := colly.NewCollector()
 
-	// On every a element which has href attribute call callback
-	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
-                link := e.Attr("href")
+	c.OnHTML("article.category-taiwanese", func(e *colly.HTMLElement) {
+		link := e.Attr("href")
+		img := e.ChildAttr("img", "src")
+		title := e.ChildText("h3")
+		print(link, img, title)
 
-		// Print link
-                fmt.Printf("Link found: %q -> %s\n", e.Text, link)
+		foodRecipe := foodRecipe{
+			Title: title,
+			Img:   img,
+			Link:  link,
+		}
+		foodRecipeJson, _ := json.Marshal(foodRecipe)
+
+		f, err := os.OpenFile("file.txt", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		if err != nil {
+			panic(err)
+		}
+
+		defer f.Close()
+
+		foodRecipeStr := string(foodRecipeJson)
+
+		if _, err = f.WriteString(foodRecipeStr); err != nil {
+			panic(err)
+		}
+
 	})
 
-	// Before making a request print "Visiting ..."
-	c.OnRequest(func(r *colly.Request) {
-		fmt.Println("Visiting", r.URL.String())
-	})
+	c.Visit("https://chejorge.com/")
 
-	// Start scraping on https://hackerspaces.org
-	c.Visit("https://hackerspaces.org/")
 }
